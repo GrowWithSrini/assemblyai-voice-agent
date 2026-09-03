@@ -55,6 +55,14 @@ Open <http://localhost:8000>, click the mic, allow it, and talk. The agent repli
 loud; talk over it to interrupt. `localhost` is a secure origin so no HTTPS is needed
 locally; to reach it from another device, use an HTTPS tunnel (ngrok / Cloudflare Tunnel).
 
+## Deploy
+
+Container image + a GitHub Actions pipeline to **Azure Container Apps** (serverless
+containers — scales to zero, HTTPS included). One-time OIDC / secret setup and all the
+knobs are in **[DEPLOY.md](DEPLOY.md)**; after that, every push to `main` builds and
+ships a revision. Local container check: `docker build -t voice-agent . && docker run
+--rm -p 8000:8000 --env-file .env voice-agent`.
+
 ## How it works
 
 | Piece | Where | Detail |
