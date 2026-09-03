@@ -55,6 +55,20 @@ Open <http://localhost:8000>, click the mic, allow it, and talk. The agent repli
 loud; talk over it to interrupt. `localhost` is a secure origin so no HTTPS is needed
 locally; to reach it from another device, use an HTTPS tunnel (ngrok / Cloudflare Tunnel).
 
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+`tests/` covers the backend — `settings` env parsing, `ChatRequest` validation,
+`mint_stt_token` (mocked httpx: raw-key header, 502 mapping, missing-key 500),
+`run_agent` (LangGraph stubbed: reply, `thread_id`, 429→`retry_after`, 502, 500), and
+the routes via `TestClient` (`/api/config` shape, error-status mapping,
+`/api/chat` forwarding + rate-limit body). Runs on every push/PR
+([.github/workflows/test.yml](.github/workflows/test.yml)). No network or real key needed.
+
 ## Deploy
 
 Container image + a GitHub Actions pipeline to **Azure Container Apps** (serverless
