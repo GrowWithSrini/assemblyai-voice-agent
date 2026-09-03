@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AssemblyAI Realtime Voice Agent</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMjJkM2VlIi8+PHN0b3Agb2Zmc2V0PSIuNTUiIHN0b3AtY29sb3I9IiM4YjVjZjYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNlYzQ4OTkiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHJ4PSI4IiBmaWxsPSJ1cmwoJTIzZykiLz48cmVjdCB4PSIxMi41IiB5PSI2IiB3aWR0aD0iNyIgaGVpZ2h0PSIxMiIgcng9IjMuNSIgZmlsbD0iIzBiMGUxYSIvPjxwYXRoIGQ9Ik05IDE1YTcgNyAwIDAgMCAxNCAwTTE2IDIydjRNMTIgMjZoOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGIwZTFhIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg=="
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-0: #06070d;
+        --bg-1: #0c1020;
+        --text: #f2f4fb;
+        --muted: #9aa3bd;
+        --glass: rgba(20, 24, 42, 0.55);
+        --glass-brd: rgba(255, 255, 255, 0.08);
+        --cyan: #22d3ee;
+        --violet: #8b5cf6;
+        --pink: #ec4899;
+        --ok: #34d399;
+        --err: #fb7185;
+        --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        font-family: var(--font);
+        color: var(--text);
+        background: var(--bg-0);
+        overflow-x: hidden;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      /* ---------- animated aurora backdrop ---------- */
+      .aurora {
+        position: fixed;
+        inset: -20vmax;
+        z-index: -1;
+        filter: blur(80px) saturate(1.3);
+        opacity: 0.55;
+        pointer-events: none;
+      }
+      .aurora span {
+        position: absolute;
+        display: block;
+        width: 46vmax;
+        height: 46vmax;
+        border-radius: 50%;
+        mix-blend-mode: screen;
+        animation: drift 26s ease-in-out infinite;
+      }
+      .aurora span:nth-child(1) { background: #3b1e8f; top: 2%; left: 8%; }
+      .aurora span:nth-child(2) { background: #0e5f79; top: 30%; right: 4%; animation-delay: -8s; }
+      .aurora span:nth-child(3) { background: #7a1e5b; bottom: 2%; left: 30%; animation-delay: -16s; }
+      @keyframes drift {
+        0%, 100% { transform: translate(0, 0) scale(1); }
+        33% { transform: translate(6vmax, -4vmax) scale(1.12); }
+        66% { transform: translate(-5vmax, 5vmax) scale(0.94); }
+      }
+
+      main {
+        width: 100%;
+        max-width: 720px;
+        padding: 28px 20px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      /* ---------- header ---------- */
+      header { display: flex; align-items: center; gap: 12px; }
+      .mark {
+        width: 34px; height: 34px; border-radius: 10px; flex: none;
+        background: conic-gradient(from 140deg, var(--cyan), var(--violet), var(--pink), var(--cyan));
+        display: grid; place-items: center;
+        box-shadow: 0 8px 30px rgba(139, 92, 246, 0.4);
+      }
+      .mark::after { content: ""; width: 12px; height: 12px; border-radius: 4px; background: #0b0e1a; }
+      header h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+      header p { margin: 1px 0 0; font-size: 12px; color: var(--muted); }
+
+      /* ---------- voice orb ---------- */
+      .stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 0 4px;
+      }
+      .orb-wrap {
+        position: relative;
+        width: 300px;
+        height: 300px;
+        display: grid;
+        place-items: center;
+      }
+      #viz {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .halo {
+        position: absolute;
+        width: 236px; height: 236px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.28), transparent 62%);
+        transition: background 0.5s ease, transform 0.5s ease;
+      }
+      .orb {
+        position: relative;
+        width: 168px; height: 168px;
+        border: 0; padding: 0; cursor: pointer;
+        border-radius: 50%;
+        background:
+          radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 40%),
+          linear-gradient(150deg, var(--cyan), var(--violet) 60%, var(--pink));
+        box-shadow:
+          0 22px 60px rgba(15, 10, 40, 0.6),
+          inset 0 0 40px rgba(255, 255, 255, 0.18);
+        display: grid; place-items: center;
+        color: #0a0c18;
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.4s ease;
+        animation: breathe 4.5s ease-in-out infinite;
+      }
+      .orb:hover { transform: scale(1.04); }
+      .orb:active { transform: scale(0.97); }
+      .orb svg { width: 46px; height: 46px; }
+      @keyframes breathe {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.12); }
+      }
+      @keyframes spin { to { transform: rotate(1turn); } }
+
+      /* phase-driven styling */
+      body[data-phase="idle"] .orb { animation-duration: 5s; }
+      body[data-phase="connecting"] .orb { animation: none; }
+      body[data-phase="connecting"] .halo {
+        border: 2px solid transparent;
+        border-top-color: var(--cyan);
+        animation: spin 0.9s linear infinite;
+        background: none;
+      }
+      body[data-phase="listening"] .halo {
+        background: radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.4), transparent 60%);
+      }
+      body[data-phase="thinking"] .orb {
+        animation: spin 1.4s linear infinite;
+        background: conic-gradient(from 0deg, var(--violet), var(--cyan), var(--pink), var(--violet));
+      }
+      body[data-phase="thinking"] .orb svg { animation: spin 1.4s linear infinite reverse; }
+      body[data-phase="thinking"] .halo {
+        background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.4), transparent 60%);
+      }
+      body[data-phase="speaking"] .orb { animation: breathe 1.1s ease-in-out infinite; }
+      body[data-phase="speaking"] .halo {
+        background: radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.42), transparent 60%);
+      }
+
+      .hint { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+      .statusbar {
+        display: flex; align-items: center; gap: 9px;
+        font-size: 13px; color: var(--muted);
+        padding: 8px 14px;
+        background: var(--glass);
+        border: 1px solid var(--glass-brd);
+        border-radius: 999px;
+        backdrop-filter: blur(12px);
+      }
+      .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; transition: 0.3s; }
+      body[data-phase="listening"] .dot { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+      body[data-phase="thinking"] .dot { background: var(--violet); box-shadow: 0 0 10px var(--violet); }
+      body[data-phase="speaking"] .dot { background: var(--pink); box-shadow: 0 0 10px var(--pink); }
+      .statusbar.ok .dot { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+      .statusbar.err { color: var(--err); }
+      .statusbar.err .dot { background: var(--err); box-shadow: 0 0 10px var(--err); }
+      .chip {
+        font-size: 11px;
+        color: #cfe9ff;
+        background: rgba(34, 211, 238, 0.14);
+        border: 1px solid rgba(34, 211, 238, 0.32);
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+
+      /* ---------- transcript ---------- */
+      .panel {
+        background: var(--glass);
+        border: 1px solid var(--glass-brd);
+        border-radius: 20px;
+        backdrop-filter: blur(14px);
+        box-shadow: 0 20px 60px rgba(4, 6, 16, 0.5);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      #transcript {
+        padding: 18px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+        min-height: 200px;
+        max-height: 42vh;
+      }
+      #transcript:empty::after {
+        content: "Tap the orb and start talking. The agent replies out loud — talk over it any time to interrupt.";
+        margin: auto;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13.5px;
+        max-width: 340px;
+        line-height: 1.6;
+      }
+      .bubble {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        max-width: 88%;
+        animation: rise 0.22s ease;
+      }
+      @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      .bubble .av {
+        width: 26px; height: 26px; border-radius: 50%; flex: none;
+        display: grid; place-items: center;
+        font-size: 11px; font-weight: 700; color: #08101c;
+      }
+      .bubble.user { align-self: flex-end; flex-direction: row-reverse; }
+      .bubble.user .av { background: linear-gradient(140deg, #e2e8f0, #94a3b8); }
+      .bubble.agent .av { background: linear-gradient(140deg, var(--cyan), var(--violet)); color: #fff; }
+      .bubble .body {
+        padding: 9px 13px;
+        border-radius: 14px;
+        font-size: 14.5px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .bubble.user .body { background: rgba(255, 255, 255, 0.1); border-bottom-right-radius: 5px; }
+      .bubble.agent .body {
+        background: linear-gradient(150deg, rgba(34, 211, 238, 0.16), rgba(139, 92, 246, 0.16));
+        border: 1px solid rgba(139, 92, 246, 0.28);
+        border-bottom-left-radius: 5px;
+      }
+      .bubble.system {
+        align-self: center;
+        max-width: 100%;
+      }
+      .bubble.system .body {
+        background: none;
+        color: var(--muted);
+        font-size: 11.5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        padding: 2px 0;
+      }
+
+      /* ---------- controls ---------- */
+      .controls {
+        display: flex;
+        gap: 10px;
+        padding: 12px;
+        border-top: 1px solid var(--glass-brd);
+        flex-wrap: wrap;
+      }
+      .field { flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 4px; }
+      .field span {
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--muted); padding-left: 2px;
+      }
+      select {
+        appearance: none;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text);
+        border: 1px solid var(--glass-brd);
+        border-radius: 11px;
+        padding: 9px 12px;
+        font-family: var(--font);
+        font-size: 13.5px;
+      }
+      select:disabled { opacity: 0.45; }
+      select:focus { outline: 2px solid rgba(139, 92, 246, 0.6); outline-offset: 1px; }
+
+      footer {
+        font-size: 11.5px;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.7;
+        padding: 0 8px;
+      }
+      footer a { color: #b7c8ff; text-decoration: none; }
+      footer a:hover { text-decoration: underline; }
+
+      @media (max-width: 480px) {
+        .orb-wrap { width: 260px; height: 260px; }
+        .orb { width: 148px; height: 148px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .aurora span, .orb { animation: none !important; }
+      }
+    </style>
+  </head>
+  <body data-phase="idle">
+    <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <main>
+      <header>
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <h1>Realtime Voice Agent</h1>
+          <p>Universal-3.5&nbsp;Pro streaming STT · LLM Gateway · browser TTS</p>
+        </div>
+      </header>
+
+      <section class="stage">
+        <div class="orb-wrap">
+          <canvas id="viz" aria-hidden="true"></canvas>
+          <div class="halo" aria-hidden="true"></div>
+          <button id="toggle" class="orb" aria-label="Start conversation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" stroke="none" />
+              <path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" />
+            </svg>
+          </button>
+        </div>
+        <div class="hint" id="btnLabel">Tap to start</div>
+        <div class="statusbar" id="status">
+          <span class="dot"></span><span id="statusText">Idle</span>
+          <span id="langChip" class="chip" hidden></span>
+        </div>
+      </section>
+
+      <div class="panel">
+        <div id="transcript"></div>
+        <div class="controls">
+          <label class="field">
+            <span>Spoken language</span>
+            <select id="lang">
+              <option value="auto">Auto / multilingual</option>
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+              <option value="nl">Dutch</option>
+              <option value="hi">Hindi</option>
+              <option value="ja">Japanese</option>
+              <option value="zh">Mandarin</option>
+              <option value="ar">Arabic</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>TTS voice (browser)</span>
+            <select id="voice"></select>
+          </label>
+        </div>
+      </div>
+
+      <footer>
+        STT <a href="https://www.assemblyai.com/docs/streaming" target="_blank" rel="noreferrer">Universal-3.5&nbsp;Pro streaming</a>
+        · LLM <a href="https://www.assemblyai.com/docs/llm-gateway/overview" target="_blank" rel="noreferrer">AssemblyAI LLM Gateway</a>
+        · TTS Web Speech API<br />
+        The API key stays server-side; the browser holds only a single-use 60&nbsp;s STT token.
+      </footer>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
