@@ -4,18 +4,15 @@ A voice agent where **AssemblyAI does only realtime speech-to-text**, a **LangGr
 agent handles the conversation, and the browser drives audio in/out. Bring-your-own
 LLM (via LLM Gateway) and TTS.
 
-```
-mic ──16 kHz PCM16──▶ AssemblyAI Streaming STT (wss /v3/ws, Universal-3.5 Pro)
-                          │  Turn(end_of_turn) → user utterance
-                          ▼
-     POST /api/chat ──▶ LangGraph agent ──▶ AssemblyAI LLM Gateway (OpenAI-compatible)
-                          │  (server-side memory per session_id)
-                          ▼  reply text
-                     Web Speech API (speechSynthesis) speaks the reply
-```
+![Voice Agent data flow](docs/architecture.svg)
 
-Turn-taking / VAD comes from the STT stream (`SpeechStarted` + `Turn.end_of_turn`).
-Barge-in: talking over the agent cancels both the TTS and the in-flight LLM request.
+**Two independent paths.** The FastAPI server only mints the one-time STT token and
+handles conversational turns; the audio never passes through it. Turn-taking / VAD
+comes from the STT stream (`SpeechStarted` + `Turn.end_of_turn`). Barge-in works only
+because the two paths run independently — new speech can arrive while the LLM turn is
+still in flight. The diagram animates when opened directly
+([`docs/architecture.svg`](docs/architecture.svg)); an interactive version with the
+"on the wire" detail is [here](https://claude.ai/code/artifact/bdef6c99-78b0-484b-8486-50ad6cb60874).
 
 ```
 app/
@@ -65,11 +62,23 @@ locally; to reach it from another device, use an HTTPS tunnel (ngrok / Cloudflar
 | STT token | `GET /api/stt-token` (server) | `GET https://streaming.assemblyai.com/v3/token?expires_in_seconds=60` — **raw key**, no `Bearer`. Single-use. |
 | STT stream | browser | `wss://streaming.assemblyai.com/v3/ws?token=…&sample_rate=16000&speech_model=universal-3-5-pro&mode=balanced&format_turns=true&language_detection=true`. Mic → AudioWorklet → 16 kHz mono PCM16 → 100 ms binary frames. |
 | Turn-taking | browser | `Turn` with `end_of_turn:false` → live partial; `end_of_turn:true` → final utterance → LLM. `SpeechStarted` drives barge-in. |
-| Multilingual | — | Universal-3.5 Pro code-switches across 18 languages natively. The language selector is "Auto" by default; pick one to pin `language_codes`. `language_detection=true` shows the detected language chip. |
+| Multilingual | — | Universal-3.5 Pro code-switches across 18 languages natively. The language selector defaults to **English** (pins `language_codes=en`); choose "Auto / multilingual" to unpin, or another language. `language_detection=true` shows the detected-language chip. |
 | Agent | `POST /api/chat` (server) | LangGraph `StateGraph` → `ChatOpenAI` pointed at `https://llm-gateway.assemblyai.com/v1` (**raw key**, OpenAI-compatible). The client sends only `{session_id, message}`; conversation memory is a LangGraph checkpointer keyed on `session_id`. |
 | TTS | browser | Web Speech API (`speechSynthesis`). Voice list is populated from the OS; `en-US` sorted first. No key, no network. |
 | Barge-in | browser | `SpeechStarted` or a non-empty partial while the agent is busy → `speechSynthesis.cancel()` + `AbortController` on the `/api/chat` fetch. |
 | Termination | browser | Sends `{"type":"Terminate"}` on Stop and `beforeunload`, then closes. |
+
+### On the wire
+
+| Segment | Payload | Cadence |
+|---|---|---|
+| Mic → Streaming STT | PCM16, 16 kHz mono, 100 ms binary frames | continuous while listening |
+| Streaming STT → browser | `Turn` events — partials, then `end_of_turn` | ~3–4× per second |
+| browser → `/api/chat` | `{ session_id, message }` | once per finished utterance |
+| LangGraph ↔ LLM Gateway | OpenAI `chat/completions` + `MemorySaver` load/save | once per turn |
+| LLM Gateway → browser | reply text → `speechSynthesis.speak()` | once per turn |
+| Streaming STT → browser | `SpeechStarted` → cancel TTS + abort fetch | on interruption |
+| `/api/stt-token` → AssemblyAI | mint single-use STT token | once per session |
 
 ### Agent (LangGraph)
 

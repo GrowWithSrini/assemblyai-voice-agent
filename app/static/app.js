@@ -155,6 +155,27 @@ function logLine(text) {
 const synth = window.speechSynthesis;
 let voices = [];
 
+// Preferred en-US voices by OS/browser, best first. First match wins as the default.
+const PREFERRED_VOICES = [
+  'Google US English',
+  'Microsoft Aria Online (Natural) - English (United States)',
+  'Microsoft Ava Online (Natural) - English (United States)',
+  'Samantha',
+  'Ava (Premium)',
+  'Aria',
+  'Microsoft Zira - English (United States)',
+  'Alex',
+];
+
+function pickDefaultVoice() {
+  for (const name of PREFERRED_VOICES) {
+    const hit = voices.find((v) => v.name.toLowerCase().includes(name.toLowerCase()));
+    if (hit) return hit.name;
+  }
+  const enUs = voices.find((v) => v.lang === 'en-US');
+  return (enUs || voices[0]).name;
+}
+
 function loadVoices() {
   voices = synth ? synth.getVoices() : [];
   if (!voices.length) return;
@@ -165,10 +186,10 @@ function loadVoices() {
   for (const v of voices) {
     const opt = document.createElement('option');
     opt.value = v.name;
-    opt.textContent = `${v.name} — ${v.lang}${v.default ? ' (default)' : ''}`;
+    opt.textContent = `${v.name} — ${v.lang}${v.default ? ' (system default)' : ''}`;
     els.voice.appendChild(opt);
   }
-  if (prev && voices.some((v) => v.name === prev)) els.voice.value = prev;
+  els.voice.value = prev && voices.some((v) => v.name === prev) ? prev : pickDefaultVoice();
 }
 
 if (synth) {

@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 716" width="1200" height="716"
+     font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+     role="img" aria-label="Voice agent data-flow diagram. Audio is captured in the browser and streamed as 16 kHz PCM16 over a WebSocket directly to AssemblyAI Universal-3.5 Pro streaming STT, which returns Turn events to the browser; this path does not pass through the FastAPI server. When a turn ends, the browser posts session_id and message to the server's /api/chat route, where a LangGraph StateGraph with a MemorySaver checkpointer keyed by session_id calls the AssemblyAI LLM Gateway and returns reply text, which the browser speaks with the Web Speech API. A SpeechStarted event triggers barge-in: the browser cancels playback and aborts the in-flight request. The STT token is minted once per session by the server.">
+  <title>Voice Agent Data Flow</title>
+
+  <defs>
+    <marker id="a-audio" viewBox="0 0 9 9" refX="7.5" refY="4.5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0.5 0.5 L8.5 4.5 L0.5 8.5 z" fill="#0e7490"/>
+    </marker>
+    <marker id="a-turn" viewBox="0 0 9 9" refX="7.5" refY="4.5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0.5 0.5 L8.5 4.5 L0.5 8.5 z" fill="#6d28d9"/>
+    </marker>
+    <marker id="a-alert" viewBox="0 0 9 9" refX="7.5" refY="4.5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0.5 0.5 L8.5 4.5 L0.5 8.5 z" fill="#be1d64"/>
+    </marker>
+    <marker id="a-token" viewBox="0 0 9 9" refX="7.5" refY="4.5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0.5 0.5 L8.5 4.5 L0.5 8.5 z" fill="#8a93a3"/>
+    </marker>
+  </defs>
+
+  <style>
+    @media (prefers-reduced-motion: reduce) { .motion { display: none; } }
+  </style>
+
+  <!-- figure card -->
+  <rect x="1" y="1" width="1198" height="714" rx="16" fill="#fbfcfe" stroke="#e4e8ef"/>
+
+  <!-- zones -->
+  <rect x="40" y="104" width="300" height="544" rx="12" fill="#f1f4f8" stroke="#d9dee8"/>
+  <rect x="450" y="104" width="300" height="544" rx="12" fill="#f1f4f8" stroke="#d9dee8"/>
+  <rect x="860" y="104" width="300" height="544" rx="12" fill="#f1f4f8" stroke="#d9dee8"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" font-weight="600" letter-spacing="1.6" fill="#5b6474">
+    <text x="52" y="92">BROWSER</text>
+    <text x="462" y="92">FASTAPI SERVER · app/</text>
+    <text x="872" y="92">ASSEMBLYAI</text>
+  </g>
+
+  <!-- audio path (routed around the server) -->
+  <path id="w-audio-up" fill="none" stroke="#0e7490" stroke-width="2" marker-end="url(#a-audio)"
+        d="M 306 264 L 400 264 L 400 56 L 856 56 L 856 272 L 894 272"/>
+  <path id="w-audio-dn" fill="none" stroke="#0e7490" stroke-width="2" marker-end="url(#a-audio)"
+        d="M 894 288 L 840 288 L 840 72 L 420 72 L 420 288 L 306 288"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10.5" fill="#0e7490">
+    <text x="600" y="30" text-anchor="middle">audio path — browser ⇄ AssemblyAI, direct</text>
+    <text x="405" y="47">▶ PCM16, 100 ms frames</text>
+    <text x="795" y="47" text-anchor="end">◀ Turn events</text>
+  </g>
+
+  <!-- nodes -->
+  <g font-size="14" font-weight="500" fill="#1b2130" text-anchor="middle">
+    <g>
+      <rect x="74" y="136" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="190" y="161">Mic → AudioWorklet</text>
+      <text x="190" y="178" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">16 kHz mono PCM16</text>
+    </g>
+    <g>
+      <rect x="74" y="250" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="190" y="275">STT WebSocket</text>
+      <text x="190" y="292" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">wss · /v3/ws</text>
+    </g>
+    <g>
+      <rect x="74" y="398" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="190" y="423">Agent loop</text>
+      <text x="190" y="440" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">onTurn · fetch · speak</text>
+    </g>
+    <g>
+      <rect x="74" y="512" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="190" y="537">Web Speech API</text>
+      <text x="190" y="554" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">speechSynthesis</text>
+    </g>
+
+    <g>
+      <rect x="484" y="136" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="600" y="161">GET /api/stt-token</text>
+      <text x="600" y="178" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">raw key · single use</text>
+    </g>
+    <g>
+      <rect x="484" y="300" width="232" height="52" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="600" y="331">POST /api/chat</text>
+    </g>
+    <g>
+      <rect x="484" y="392" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="600" y="417">LangGraph · StateGraph</text>
+      <text x="600" y="434" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">call_model node</text>
+    </g>
+    <g>
+      <rect x="484" y="508" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="600" y="533">MemorySaver</text>
+      <text x="600" y="550" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">thread_id = session_id</text>
+    </g>
+
+    <g>
+      <rect x="894" y="136" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="1010" y="161">Token service</text>
+      <text x="1010" y="178" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">/v3/token</text>
+    </g>
+    <g>
+      <rect x="894" y="250" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="1010" y="275">Streaming STT</text>
+      <text x="1010" y="292" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">Universal-3.5 Pro · balanced</text>
+    </g>
+    <g>
+      <rect x="894" y="386" width="232" height="56" rx="7" fill="#ffffff" stroke="#d1d8e3"/>
+      <text x="1010" y="411">LLM Gateway</text>
+      <text x="1010" y="428" font-size="11" font-weight="400" fill="#616b7d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">chat/completions · qwen3.5-4b</text>
+    </g>
+  </g>
+
+  <!-- token wire -->
+  <path id="w-tok-mint" fill="none" stroke="#8a93a3" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#a-token)" d="M 716 162 L 894 162"/>
+
+  <!-- turn wires -->
+  <path id="w-req" fill="none" stroke="#6d28d9" stroke-width="2" marker-end="url(#a-turn)" d="M 306 424 C 372 424 410 334 484 328"/>
+  <path id="w-graph" fill="none" stroke="#6d28d9" stroke-width="2" marker-end="url(#a-turn)" d="M 600 352 L 600 392"/>
+  <path id="w-gw" fill="none" stroke="#6d28d9" stroke-width="2" marker-end="url(#a-turn)" d="M 716 420 C 780 420 840 414 894 414"/>
+  <path id="w-mem" fill="none" stroke="#8a93a3" stroke-width="1.5" marker-start="url(#a-token)" marker-end="url(#a-token)" d="M 600 448 L 600 508"/>
+  <path id="w-speak" fill="none" stroke="#6d28d9" stroke-width="2" marker-end="url(#a-turn)" d="M 190 454 L 190 512"/>
+  <path id="w-barge" fill="none" stroke="#be1d64" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#a-alert)" d="M 176 306 L 176 398"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10.5">
+    <text x="805" y="153" text-anchor="middle" fill="#5b6474">mint token</text>
+    <text x="330" y="352" fill="#6d28d9">POST /api/chat</text>
+    <text x="330" y="366" fill="#5b6474">{ session_id, message }</text>
+    <text x="330" y="392" fill="#6d28d9">◀ reply text</text>
+    <text x="785" y="405" text-anchor="middle" fill="#6d28d9">chat/completions ⇄</text>
+    <text x="612" y="484" fill="#5b6474">load / save history</text>
+    <text x="204" y="488" fill="#6d28d9">speak(reply)</text>
+    <text x="150" y="356" text-anchor="end" fill="#be1d64">barge-in</text>
+  </g>
+
+  <!-- moving dots -->
+  <g class="motion">
+    <circle r="3.6" fill="#0e7490"><animateMotion dur="2.4s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-up"/></animateMotion></circle>
+    <circle r="3.6" fill="#0e7490"><animateMotion dur="2.4s" begin="-0.48s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-up"/></animateMotion></circle>
+    <circle r="3.6" fill="#0e7490"><animateMotion dur="2.4s" begin="-0.96s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-up"/></animateMotion></circle>
+    <circle r="3.6" fill="#0e7490"><animateMotion dur="2.4s" begin="-1.44s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-up"/></animateMotion></circle>
+    <circle r="3.6" fill="#0e7490"><animateMotion dur="2.4s" begin="-1.92s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-up"/></animateMotion></circle>
+
+    <circle r="3" fill="#0e7490" opacity="0.8"><animateMotion dur="3s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-dn"/></animateMotion></circle>
+    <circle r="3" fill="#0e7490" opacity="0.8"><animateMotion dur="3s" begin="-1s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-dn"/></animateMotion></circle>
+    <circle r="3" fill="#0e7490" opacity="0.8"><animateMotion dur="3s" begin="-2s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-audio-dn"/></animateMotion></circle>
+
+    <circle r="4" fill="#6d28d9"><animateMotion dur="1.5s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-req"/></animateMotion></circle>
+    <circle r="4" fill="#6d28d9"><animateMotion dur="1.4s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-graph"/></animateMotion></circle>
+    <circle r="4" fill="#6d28d9"><animateMotion dur="1.4s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-gw"/></animateMotion></circle>
+
+    <circle r="3.2" fill="#6d28d9" opacity="0.5"><animateMotion dur="1.7s" begin="-0.85s" keyPoints="1;0" keyTimes="0;1" repeatCount="indefinite" calcMode="linear"><mpath href="#w-gw"/></animateMotion></circle>
+    <circle r="3.2" fill="#6d28d9" opacity="0.5"><animateMotion dur="1.6s" begin="-0.8s" keyPoints="1;0" keyTimes="0;1" repeatCount="indefinite" calcMode="linear"><mpath href="#w-graph"/></animateMotion></circle>
+    <circle r="3.2" fill="#6d28d9" opacity="0.5"><animateMotion dur="1.9s" begin="-0.95s" keyPoints="1;0" keyTimes="0;1" repeatCount="indefinite" calcMode="linear"><mpath href="#w-req"/></animateMotion></circle>
+
+    <circle r="3.4" fill="#6d28d9"><animateMotion dur="1.1s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-speak"/></animateMotion></circle>
+    <circle r="3.4" fill="#6d28d9"><animateMotion dur="1.1s" begin="-0.55s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-speak"/></animateMotion></circle>
+
+    <circle r="3" fill="#8a93a3"><animateMotion dur="1.8s" keyPoints="0;1;0" keyTimes="0;0.5;1" repeatCount="indefinite" calcMode="linear"><mpath href="#w-mem"/></animateMotion></circle>
+
+    <circle r="3.6" fill="#be1d64"><animateMotion dur="0.9s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-barge"/></animateMotion></circle>
+    <circle r="3.6" fill="#be1d64"><animateMotion dur="0.9s" begin="-0.45s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-barge"/></animateMotion></circle>
+
+    <circle r="2.8" fill="#8a93a3"><animateMotion dur="3.2s" begin="-1.6s" repeatCount="indefinite" calcMode="linear"><mpath href="#w-tok-mint"/></animateMotion></circle>
+  </g>
+
+  <!-- legend -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11" fill="#5b6474">
+    <line x1="60" y1="686" x2="86" y2="686" stroke="#0e7490" stroke-width="2.5"/>
+    <text x="94" y="690">audio ⇄ transcript · direct</text>
+    <line x1="360" y1="686" x2="386" y2="686" stroke="#6d28d9" stroke-width="2.5"/>
+    <text x="394" y="690">conversational turn · via the server</text>
+    <line x1="730" y1="686" x2="756" y2="686" stroke="#be1d64" stroke-width="2.5" stroke-dasharray="5 4"/>
+    <text x="764" y="690">barge-in · cancels the reply</text>
+    <line x1="1010" y1="686" x2="1036" y2="686" stroke="#8a93a3" stroke-width="2" stroke-dasharray="4 4"/>
+    <text x="1044" y="690">token · once/session</text>
+  </g>
+</svg>
