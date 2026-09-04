@@ -20,7 +20,8 @@ app/
   settings.py          env-driven configuration (Settings, get_settings)
   schemas.py           request models (ChatRequest: session_id + message)
   assemblyai.py        direct AssemblyAI calls: mint_stt_token()
-  agent.py             LangGraph agent: StateGraph + checkpointer, run_agent()
+  agent.py             LangGraph agent: StateGraph + checkpointer + ReAct tools, run_agent()
+  tools.py             @tool functions (JSON-Schema) the agent can call
   api.py               HTTP routes: /api/config, /api/stt-token, /api/chat, /favicon.*
   static/
     index.html         UI
@@ -85,7 +86,7 @@ ships a revision. Local container check: `docker build -t voice-agent . && docke
 | STT stream | browser | `wss://streaming.assemblyai.com/v3/ws?token=…&sample_rate=16000&speech_model=universal-3-5-pro&mode=balanced&format_turns=true&language_detection=true`. Mic → AudioWorklet → 16 kHz mono PCM16 → 100 ms binary frames. |
 | Turn-taking | browser | `Turn` with `end_of_turn:false` → live partial; `end_of_turn:true` → final utterance → LLM. `SpeechStarted` drives barge-in. |
 | Multilingual | — | Universal-3.5 Pro code-switches across 18 languages natively. The language selector defaults to **English** (pins `language_codes=en`); choose "Auto / multilingual" to unpin, or another language. `language_detection=true` shows the detected-language chip. |
-| Agent | `POST /api/chat` (server) | LangGraph `StateGraph` → `ChatOpenAI` pointed at `https://llm-gateway.assemblyai.com/v1` (**raw key**, OpenAI-compatible). The client sends only `{session_id, message}`; conversation memory is a LangGraph checkpointer keyed on `session_id`. |
+| Agent | `POST /api/chat` (server) | LangGraph `StateGraph` → `ChatOpenAI` at `https://llm-gateway.assemblyai.com/v1` (**raw key**, OpenAI-compatible). Client sends only `{session_id, message}`; memory is a checkpointer keyed on `session_id`. On tool-capable models it's a ReAct loop over the JSON-Schema tools in `app/tools.py`. |
 | TTS | browser | Web Speech API (`speechSynthesis`). Voice list is populated from the OS; `en-US` sorted first. No key, no network. |
 | Barge-in | browser | `SpeechStarted` or a non-empty partial while the agent is busy → `speechSynthesis.cancel()` + `AbortController` on the `/api/chat` fetch. |
 | Termination | browser | Sends `{"type":"Terminate"}` on Stop and `beforeunload`, then closes. |
@@ -104,14 +105,23 @@ ships a revision. Local container check: `docker build -t voice-agent . && docke
 
 ### Agent (LangGraph)
 
-`agent.py` builds a `StateGraph` — one `call_model` node today (`START → call_model → END`).
-`run_agent(session_id, message)` invokes it with `thread_id = session_id`, so the
-**server** keeps the running message history via a `MemorySaver` checkpointer; the
-browser is stateless and sends one message per turn.
+`agent.py` builds a `StateGraph`. `run_agent(session_id, message)` invokes it with
+`thread_id = session_id`, so the **server** keeps the running message history via a
+`MemorySaver` checkpointer; the browser is stateless and sends one message per turn.
 
-- **Tools:** the free model reports `tools=False`, so there's no `ToolNode` yet. On a
-  tool-capable model (`claude-haiku-4-5-20251001`, `gemini-2.5-flash-lite`, …) uncomment
-  the marked block in `agent.py` and it becomes a ReAct agent.
+```
+without tools:   START → call_model → END
+with tools:      START → call_model ─┬─(tool call?)→ tools → call_model
+                                     └─(else)──────→ END
+```
+
+- **JSON-Schema tool calling.** Tools live in [`app/tools.py`](app/tools.py) as `@tool`
+  functions (`get_current_time`, `get_weather` — mock). `llm.bind_tools(TOOLS)`
+  serializes each one to a JSON-Schema function definition in the OpenAI `tools`
+  parameter; `ToolNode` + `tools_condition` run the ReAct loop. **The free model
+  rejects a `tools` payload (HTTP 400)**, so tools default **off** for
+  `qwen3.5-4b-32k-fast` and **on** for any other model. Force it with
+  `LLM_ENABLE_TOOLS=true|false`. Add a tool = add a `@tool` function to `TOOLS`.
 - **`MemorySaver` is in-process.** One instance is fine; a multi-instance deployment
   needs a shared checkpointer (`langgraph-checkpoint-postgres`/`-redis`) or sticky
   sessions. Relevant for the Azure step.

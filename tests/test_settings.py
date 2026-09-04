@@ -35,6 +35,29 @@ def test_env_overrides(monkeypatch):
     assert s.stt_sample_rate == 8000
 
 
+def test_tools_disabled_by_default_for_free_model():
+    # default LLM_MODEL is qwen3.5-4b-32k-fast, which rejects a tools payload
+    assert get_settings().llm_enable_tools is False
+
+
+def test_tools_enabled_by_default_for_other_models(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "claude-haiku-4-5-20251001")
+    get_settings.cache_clear()
+    assert get_settings().llm_enable_tools is True
+
+
+def test_tools_env_override_wins(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "claude-haiku-4-5-20251001")
+    monkeypatch.setenv("LLM_ENABLE_TOOLS", "false")
+    get_settings.cache_clear()
+    assert get_settings().llm_enable_tools is False
+
+    monkeypatch.setenv("LLM_MODEL", "qwen3.5-4b-32k-fast")
+    monkeypatch.setenv("LLM_ENABLE_TOOLS", "true")
+    get_settings.cache_clear()
+    assert get_settings().llm_enable_tools is True
+
+
 def test_port_reads_WEBSITES_PORT(monkeypatch):
     monkeypatch.setenv("WEBSITES_PORT", "9000")
     get_settings.cache_clear()
