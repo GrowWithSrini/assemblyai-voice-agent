@@ -79,3 +79,59 @@ async def test_run_agent_without_key_raises_500(monkeypatch):
 )
 def test_is_rate_limit(text, expected):
     assert agent._is_rate_limit(Exception(text)) is expected
+
+
+# --- ReAct tool loop (real graph, fake LLM) ---------------------------------------
+
+
+class _ScriptedLLM:
+    """Fake ChatOpenAI: bind_tools is a no-op, invoke replays a script of messages."""
+
+    def __init__(self, script):
+        self._script = list(script)
+        self.invocations = 0
+
+    def bind_tools(self, tools):
+        return self
+
+    def invoke(self, messages):
+        msg = self._script[min(self.invocations, len(self._script) - 1)]
+        self.invocations += 1
+        return msg
+
+
+async def test_tool_calling_runs_the_react_loop(monkeypatch):
+    monkeypatch.setenv("LLM_ENABLE_TOOLS", "true")
+    agent.get_settings.cache_clear()
+    agent._build_graph.cache_clear()
+
+    scripted = _ScriptedLLM(
+        [
+            agent.AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "get_weather", "args": {"city": "Paris"}, "id": "c1", "type": "tool_call"}
+                ],
+            ),
+            agent.AIMessage(content="It's clear in Paris right now."),
+        ]
+    )
+    monkeypatch.setattr(agent, "ChatOpenAI", lambda **kwargs: scripted)
+
+    reply = await agent.run_agent("sess-tools", "what's the weather in Paris?")
+
+    assert reply == "It's clear in Paris right now."
+    assert scripted.invocations == 2  # model → tool → model
+
+
+async def test_no_tool_node_when_tools_disabled(monkeypatch):
+    monkeypatch.setenv("LLM_ENABLE_TOOLS", "false")
+    agent.get_settings.cache_clear()
+    agent._build_graph.cache_clear()
+
+    scripted = _ScriptedLLM([agent.AIMessage(content="plain answer")])
+    monkeypatch.setattr(agent, "ChatOpenAI", lambda **kwargs: scripted)
+
+    graph = agent._build_graph(agent.get_settings())
+    assert "tools" not in graph.get_graph().nodes
+    assert await agent.run_agent("s", "hi") == "plain answer"

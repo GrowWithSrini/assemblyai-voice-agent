@@ -14,11 +14,18 @@ from app.settings import get_settings
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
     monkeypatch.setenv("ASSEMBLYAI_API_KEY", "test-key-123")
-    for var in ("PORT", "WEBSITES_PORT", "STT_MODE", "STT_SAMPLE_RATE", "STT_BASE", "LLM_MODEL"):
+    for var in (
+        "PORT", "WEBSITES_PORT", "STT_MODE", "STT_SAMPLE_RATE", "STT_BASE",
+        "LLM_MODEL", "LLM_ENABLE_TOOLS",
+    ):
         monkeypatch.delenv(var, raising=False)
     get_settings.cache_clear()
+    from app.agent import _build_graph
+
+    _build_graph.cache_clear()
     yield
     get_settings.cache_clear()
+    _build_graph.cache_clear()
 
 
 @pytest.fixture
