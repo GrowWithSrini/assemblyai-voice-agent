@@ -3,7 +3,7 @@
 A voice agent where **AssemblyAI does only realtime speech-to-text**, a **LangGraph**
 agent handles the conversation, and the browser drives audio in/out. Bring-your-own
 LLM (via LLM Gateway) and TTS.
-
+ 
 ![Voice Agent data flow](docs/architecture.svg)
 
 **Two independent paths.** The FastAPI server only mints the one-time STT token and
