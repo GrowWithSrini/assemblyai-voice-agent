@@ -132,7 +132,7 @@ with tools:      START → call_model ─┬─(tool call?)→ tools → call_mo
 `LLM_MODEL` in `.env`. This account currently only has access to **`qwen3.5-4b-32k-fast`**,
 the free model.
 
-> ⚠️ **Free-model rate limit: ~2 requests per 50 s** (`x-ratelimit-limit: 2`). That's
+>  **Free-model rate limit: ~2 requests per 50 s** (`x-ratelimit-limit: 2`). That's
 > ~1 conversational turn every 25 s — usable for a quick demo, not a fluent conversation.
 > On a 429 the server returns immediately with `retry_after`; the UI shows the wait and
 > drops that turn (it doesn't queue or hammer).
